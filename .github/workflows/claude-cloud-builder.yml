@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       # Do not let repository-controlled Claude hooks or MCP servers run
-      # inside a job that has access to the Anthropic API credential.
+      # inside a job that has access to the OpenRouter API credential.
       - name: Remove repository-provided agent configuration
         shell: bash
         run: |
@@ -40,10 +40,12 @@ jobs:
           test -n "${TASK//[[:space:]]/}" || { echo "::error::Task is empty"; exit 1; }
           test "${#TASK}" -le 4000 || { echo "::error::Task is too long"; exit 1; }
 
-      - name: Run Claude Code
+      - name: Run Claude Code through OpenRouter
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The action requires this input to initialize Claude Code.
+          # OpenRouter's Anthropic-compatible endpoint receives the auth token below.
+          anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           base_branch: ${{ github.ref_name }}
           prompt: |
             Repository: ${{ github.repository }}
@@ -63,3 +65,6 @@ jobs:
             - Create a new branch and open a pull request for human review.
             - Never merge the pull request or deploy to production.
           claude_args: "--max-turns 20"
+        env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.OPENROUTER_API_KEY }}
