@@ -1,0 +1,50 @@
+name: Claude Cloud Builder
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Coding task for Claude Code"
+        required: true
+        type: string
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: claude-cloud-builder-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate task
+        env:
+          TASK: ${{ inputs.task }}
+        run: |
+          set -euo pipefail
+          test -n "${TASK//[[:space:]]/}" || { echo "::error::Task is empty"; exit 1; }
+          test "${#TASK}" -le 4000 || { echo "::error::Task is too long"; exit 1; }
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Repository: ${{ github.repository }}
+            User task:
+            ${{ inputs.task }}
+
+            Rules:
+            - Inspect the existing project before editing.
+            - Make the smallest coherent implementation of the task.
+            - Never print, expose, copy, or modify secrets or credentials.
+            - Never weaken authentication, authorization, or security controls.
+            - Do not add hidden access, telemetry, persistence, or unrelated dependencies.
+            - Run relevant tests and build checks when available.
+            - Summarize changed files and checks performed.
+            - Create a new branch and open a pull request for human review.
+            - Never merge the pull request or deploy to production.
+          claude_args: "--max-turns 20"
